@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KCET Cutoff Explorer</title>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --paper:      #faf4e4;
+  --paper2:     #f3ecda;
+  --paper3:     #ece4ce;
+  --ink:        #2a1f0e;
+  --ink2:       #5a4a30;
+  --ink3:       #8a7a5e;
+  --rule:       #c4b090;
+  --rule-light: #ddd0b4;
+  --amber:      #8b5c1e;
+  --amber-lt:   #f0e0c0;
+  --green-ink:  #1e5c2a;
+  --green-bg:   #e4f2e8;
+  --green-rule: #6aaa78;
+  --yell-ink:   #6b4a00;
+  --yell-bg:    #fdf3d0;
+  --yell-rule:  #c8980a;
+  --dim:        #a09070;
+  --btn-face:   #ede2c8;
+  --btn-hi:     #f7f0e0;
+  --btn-sh:     #8a7050;
+  --btn-act:    #e0d5bb;
+  --serif:      Georgia, 'Times New Roman', serif;
+  --mono:       'Courier New', Courier, monospace;
+  --sans:       system-ui, -apple-system, sans-serif;
+}
+html, body { height:100%; background:var(--paper); color:var(--ink); font-family:var(--sans); font-size:13px; line-height:1.4; }
+body { display:flex; flex-direction:column; min-height:100vh; }
+
+/* ── LOADING ── */
+#loading {
+  position:fixed; inset:0; background:var(--paper);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:16px; z-index:100;
+}
+#loading h2 { font-family:var(--serif); font-size:20px; color:var(--ink); }
+#loading p  { font-family:var(--mono); font-size:11px; color:var(--ink3); }
+.spinner {
+  width:36px; height:36px;
+  border:3px solid var(--rule-light);
+  border-top-color:var(--amber);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── RETRO BUTTON ── */
+.btn {
+  display:inline-flex; align-items:center; gap:5px;
+  background:var(--btn-face);
+  border-top:2px solid var(--btn-hi); border-left:2px solid var(--btn-hi);
+  border-right:2px solid var(--btn-sh); border-bottom:2px solid var(--btn-sh);
+  color:var(--ink); font-family:var(--mono); font-size:11px; font-weight:bold;
+  text-transform:uppercase; letter-spacing:.8px;
+  padding:5px 13px; cursor:pointer; user-select:none; white-space:nowrap;
+}
+.btn:hover { background:var(--btn-hi); }
+.btn:active {
+  background:var(--btn-act);
+  border-top-color:var(--btn-sh); border-left-color:var(--btn-sh);
+  border-right-color:var(--btn-hi); border-bottom-color:var(--btn-hi);
+}
+.btn.active {
+  background:var(--paper3);
+  border-top-color:var(--btn-sh); border-left-color:var(--btn-sh);
+  border-right-color:var(--btn-hi); border-bottom-color:var(--btn-hi);
+  color:var(--amber);
+}
+.btn:disabled { opacity:.4; cursor:default; }
+.btn.danger:hover { color:#8b1a1a; border-top-color:#f0b0a0; border-left-color:#f0b0a0; }
+
+/* ── FORM CONTROLS ── */
+input[type=number], input[type=text], select {
+  background:white; border:1px solid var(--rule);
+  color:var(--ink); font-family:var(--mono); font-size:12px;
+  padding:5px 8px; outline:none; appearance:none; border-radius:0;
+}
+input:focus, select:focus { border-color:var(--amber); outline:1px solid var(--amber); outline-offset:-1px; }
+input[type=checkbox] { width:15px; height:15px; cursor:pointer; accent-color:var(--amber); }
+select {
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a7a5e'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 8px center;
+  padding-right:26px; cursor:pointer;
+}
+
+/* ── HEADER ── */
+.hdr { background:var(--paper2); border-bottom:3px solid var(--rule); padding:18px 24px 14px; flex-shrink:0; }
+.hdr-top { display:flex; align-items:baseline; gap:12px; margin-bottom:2px; }
+.site-title { font-family:var(--serif); font-size:24px; font-weight:bold; color:var(--ink); }
+.site-title em { color:var(--amber); font-style:normal; }
+.site-tagline {
+  font-family:var(--mono); font-size:10px; color:var(--ink3); letter-spacing:.3px;
+  border-left:2px solid var(--rule); padding-left:10px;
+}
+.rank-row { margin-top:12px; display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
+.field { display:flex; flex-direction:column; gap:4px; }
+.field-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.8px; color:var(--ink2); font-weight:bold; }
+#rankInput { width:160px; font-size:16px; font-weight:bold; padding:7px 10px; border-width:2px; border-color:var(--rule); }
+.cat-row { display:flex; gap:4px; }
+.divider-v { width:1px; background:var(--rule-light); align-self:stretch; margin:0 8px; }
+
+/* ── TAB BAR ── */
+.tabbar {
+  background:var(--paper3); border-bottom:2px solid var(--rule);
+  padding:0 20px; display:flex; gap:0; flex-shrink:0; overflow-x:auto;
+}
+.tabbar::-webkit-scrollbar { height:3px; }
+.tab-btn {
+  padding:9px 18px; border:none; border-bottom:3px solid transparent;
+  background:transparent; color:var(--ink3); font-family:var(--mono);
+  font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:.6px;
+  cursor:pointer; white-space:nowrap; user-select:none;
+}
+.tab-btn:hover { color:var(--ink); }
+.tab-btn.active { color:var(--amber); border-bottom-color:var(--amber); }
+.tab-badge {
+  background:var(--rule-light); color:var(--ink3); border-radius:10px;
+  padding:1px 6px; font-size:10px; margin-left:5px; font-weight:bold;
+}
+.tab-btn.active .tab-badge { background:var(--amber-lt); color:var(--amber); }
+
+/* ── FILTER BAR ── */
+.filterbar {
+  background:var(--paper2); border-bottom:1px solid var(--rule);
+  padding:8px 20px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; flex-shrink:0;
+}
+.fg { display:flex; align-items:center; gap:5px; }
+.fg-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink3); white-space:nowrap; }
+.f-search { width:190px; }
+.f-course { min-width:160px; }
+.f-loc    { min-width:110px; }
+.f-round  { min-width:120px; }
+.fcount { font-family:var(--mono); font-size:11px; color:var(--ink3); }
+.ml-auto { margin-left:auto; }
+.legend { display:flex; gap:12px; align-items:center; }
+.leg { display:flex; align-items:center; gap:4px; font-family:var(--mono); font-size:10px; color:var(--ink3); }
+.leg-swatch { width:28px; height:14px; border:1px solid; display:inline-block; }
+.ls-g { background:var(--green-bg); border-color:var(--green-rule); }
+.ls-y { background:var(--yell-bg);  border-color:var(--yell-rule); }
+.ls-d { background:var(--paper);    border-color:var(--rule-light); }
+
+/* ── TABLE ── */
+.twrap { overflow:auto; flex:1; }
+table { width:100%; border-collapse:collapse; min-width:780px; border-left:1px solid var(--rule); }
+thead { position:sticky; top:0; z-index:10; }
+thead th {
+  background:var(--paper3); border-right:1px solid var(--rule); border-bottom:2px solid var(--rule);
+  padding:7px 10px; font-family:var(--mono); font-size:10px; font-weight:bold;
+  text-transform:uppercase; letter-spacing:.6px; color:var(--ink2);
+  cursor:pointer; user-select:none; white-space:nowrap;
+}
+thead th:hover { background:var(--paper2); color:var(--ink); }
+thead th.sorted { color:var(--amber); background:var(--amber-lt); }
+.s-arr { margin-left:4px; opacity:.4; font-size:9px; }
+th.sorted .s-arr { opacity:1; }
+.yr-row th {
+  background:var(--paper2); border-bottom:1px solid var(--rule-light); border-right:1px solid var(--rule-light);
+  font-size:10px; color:var(--ink3); font-family:var(--mono); text-transform:uppercase;
+  letter-spacing:.5px; padding:4px 10px; font-weight:normal; cursor:default;
+}
+.yr-row th:hover { background:var(--paper2); color:var(--ink3); }
+tbody tr { border-bottom:1px solid var(--rule-light); cursor:pointer; }
+tbody tr:nth-child(even) { background:var(--paper2); }
+tbody tr:hover { background:var(--amber-lt); }
+tbody tr.is-exp { background:#fdefd8; border-bottom:none; }
+tbody tr.exp-row { cursor:default; }
+tbody tr.exp-row:hover { background:#fdefd8; }
+tbody td { padding:7px 10px; border-right:1px solid var(--rule-light); vertical-align:middle; }
+
+.td-code { font-family:var(--mono); font-size:11px; color:var(--ink3); white-space:nowrap; }
+.td-college { max-width:240px; }
+.cn { font-size:12px; font-weight:600; color:var(--ink); line-height:1.3; }
+.td-course { color:var(--ink3); font-size:11px; max-width:150px; }
+.td-loc { color:var(--ink3); font-size:11px; white-space:nowrap; }
+.td-dist { text-align:center; color:var(--dim); font-family:var(--mono); font-size:11px; }
+.td-nirf { text-align:center; font-family:var(--mono); font-weight:bold; font-size:12px; }
+.td-nirf.has-nirf { color:var(--amber); }
+
+.cc {
+  display:inline-block; font-family:var(--mono); font-weight:bold; font-size:12px;
+  padding:3px 8px; border:1px solid var(--rule-light); min-width:58px; text-align:center;
+  background:var(--paper); color:var(--ink3);
+}
+.cc.eg { background:var(--green-bg); border-color:var(--green-rule); color:var(--green-ink); }
+.cc.cl { background:var(--yell-bg);  border-color:var(--yell-rule);  color:var(--yell-ink); }
+.cc.no { background:var(--paper); border-color:var(--rule-light); color:var(--dim); }
+.cc.na { color:var(--rule); border-color:transparent; background:transparent; }
+
+/* ── EXPAND ROW ── */
+.exp-inner {
+  padding:14px 20px 18px; background:#fdefd8;
+  border-top:1px dashed var(--rule); border-bottom:2px solid var(--rule);
+}
+.exp-inner h3 { font-family:var(--serif); font-size:13px; color:var(--ink); margin-bottom:10px; line-height:1.4; }
+.exp-inner h3 em { color:var(--amber); font-style:normal; }
+.trend-grid { display:flex; flex-wrap:wrap; gap:6px; }
+.tc { background:var(--paper); border:1px solid var(--rule); border-top:3px solid var(--rule); padding:8px 12px; text-align:center; min-width:108px; }
+.tc .rl { font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink3); margin-bottom:5px; }
+.tc .gv { font-family:var(--mono); font-size:16px; font-weight:bold; color:var(--ink); }
+.tc .tv { font-family:var(--mono); font-size:10px; color:var(--ink3); margin-top:2px; }
+.tc.eg-gm { border-top-color:var(--green-rule); } .tc.eg-gm .gv { color:var(--green-ink); }
+.tc.cl-gm { border-top-color:var(--yell-rule);  } .tc.cl-gm .gv  { color:var(--yell-ink); }
+.tc.eg-tbg .tv { color:var(--green-ink); }
+.tc.cl-tbg .tv { color:var(--yell-ink); }
+
+/* ── PAGINATION ── */
+.pager { background:var(--paper2); border-top:1px solid var(--rule); padding:7px 18px; display:flex; align-items:center; gap:4px; flex-shrink:0; flex-wrap:wrap; }
+.pi { font-family:var(--mono); font-size:10px; color:var(--ink3); margin:0 6px; }
+
+.empty-state { text-align:center; padding:56px 24px; color:var(--dim); font-family:var(--mono); }
+.empty-state .ei { font-size:32px; margin-bottom:8px; opacity:.4; }
+
+::-webkit-scrollbar { width:8px; height:8px; }
+::-webkit-scrollbar-track { background:var(--paper2); }
+::-webkit-scrollbar-thumb { background:var(--rule); }
+
+@media(max-width:640px){
+  .hdr { padding:14px 16px; }
+  .site-tagline { display:none; }
+  .legend { display:none; }
+  .f-search { width:140px; }
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <h2>KCET Cutoff Explorer</h2>
+  <p>Loading dataset…</p>
+</div>
+
+<header class="hdr" style="display:none" id="appHeader">
+  <div class="hdr-top">
+    <h1 class="site-title">KCET <em>Cutoff</em> Explorer</h1>
+    <span class="site-tagline">Karnataka Examinations Authority · Engineering &amp; Health Sciences · 2023–2025</span>
+  </div>
+  <div class="rank-row">
+    <div class="field">
+      <span class="field-label">Your CET Rank</span>
+      <input id="rankInput" type="number" placeholder="e.g. 15000" min="1" max="250000">
+    </div>
+    <div class="divider-v"></div>
+    <div class="field">
+      <span class="field-label">Category</span>
+      <div class="cat-row">
+        <button class="btn active" data-cat="gm">GM</button>
+        <button class="btn"        data-cat="tbg">3BG</button>
+        <button class="btn"        data-cat="both">Both</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="tabbar" style="display:none" id="appTabs">
+  <button class="tab-btn active" data-tab="eng">Engineering <span class="tab-badge" id="engBadge">—</span></button>
+  <button class="tab-btn" data-tab="bpharma">B.Pharma <span class="tab-badge" id="bpharmaBadge">—</span></button>
+  <button class="tab-btn" data-tab="pharmd">Pharm.D <span class="tab-badge" id="pharmdBadge">—</span></button>
+  <button class="tab-btn" data-tab="nursing">BSc Nursing <span class="tab-badge" id="nursingBadge">—</span></button>
+</nav>
+
+<div id="p-eng" style="display:none;flex-direction:column;flex:1;min-height:0">
+  <div class="filterbar">
+    <div class="fg"><span class="fg-label">Search</span>
+      <input id="eSearch" class="f-search" type="text" placeholder="college or course…">
+    </div>
+    <div class="fg"><span class="fg-label">Course</span>
+      <select id="eCourse" class="f-course"><option value="">All</option></select>
+    </div>
+    <div class="fg"><span class="fg-label">Location</span>
+      <select id="eLoc" class="f-loc"><option value="">All</option></select>
+    </div>
+    <div class="fg"><span class="fg-label">Round</span>
+      <select id="eRound" class="f-round">
+        <option>2025 Final</option><option>2025 R2</option><option>2025 R1</option>
+        <option>2024 Final</option><option>2024 R2</option><option>2024 R1</option><option>2024 Mock</option>
+        <option>2023 Final</option><option>2023 R2</option><option>2023 R1</option><option>2023 Mock</option>
+      </select>
+    </div>
+    <div class="fg"><span class="fg-label">Eligible&nbsp;only</span>
+      <input id="eElig" type="checkbox">
+    </div>
+    <button class="btn danger" onclick="clearEng()">✕ Clear</button>
+    <span id="eCnt" class="fcount"></span>
+    <div class="ml-auto legend">
+      <div class="leg"><span class="leg-swatch ls-g"></span>Eligible</div>
+      <div class="leg"><span class="leg-swatch ls-y"></span>Within 2 000</div>
+      <div class="leg"><span class="leg-swatch ls-d"></span>Not eligible</div>
+    </div>
+  </div>
+  <div class="twrap" id="eWrap">
+    <table id="eTable">
+      <thead>
+        <tr class="yr-row">
+          <th colspan="6"></th>
+          <th colspan="2" id="eYrLbl" style="text-align:center">2025 Final</th>
+        </tr>
+        <tr>
+          <th data-col="code">Code<span class="s-arr">↕</span></th>
+          <th data-col="college" style="min-width:200px">College<span class="s-arr">↕</span></th>
+          <th data-col="course"  style="min-width:120px">Course<span class="s-arr">↕</span></th>
+          <th data-col="location">Location<span class="s-arr">↕</span></th>
+          <th data-col="distance">Dist.<span class="s-arr">↕</span></th>
+          <th data-col="nirf">NIRF<span class="s-arr">↕</span></th>
+          <th data-col="gm" class="sorted" style="min-width:90px">GM Rank<span class="s-arr">↑</span></th>
+          <th data-col="tbg" style="min-width:90px">3BG Rank<span class="s-arr">↕</span></th>
+        </tr>
+      </thead>
+      <tbody id="eTbody"></tbody>
+    </table>
+  </div>
+  <div class="pager" id="ePager"></div>
+</div>
+
+<div id="p-bpharma" style="display:none;flex-direction:column;flex:1;min-height:0"></div>
+<div id="p-pharmd"  style="display:none;flex-direction:column;flex:1;min-height:0"></div>
+<div id="p-nursing" style="display:none;flex-direction:column;flex:1;min-height:0"></div>
+
+<script>
+const ROUNDS = ['2025 Final','2025 R2','2025 R1','2024 Final','2024 R2','2024 R1','2024 Mock','2023 Final','2023 R2','2023 R1','2023 Mock'];
+const PS = 50;
+let D, rank=null, cat='gm';
+const ES = {search:'',course:'',loc:'',round:'2025 Final',elig:false,sort:'gm',asc:true,page:1,data:[]};
+const SS = {bpharma:{search:'',elig:false,page:1,data:[]},pharmd:{search:'',elig:false,page:1,data:[]},nursing:{search:'',elig:false,page:1,data:[]}};
+let expandKey=null;
+
+// ── LOAD DATA ──
+fetch('data.json')
+  .then(r => { if(!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data => {
+    D = data;
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('appHeader').style.display = '';
+    document.getElementById('appTabs').style.display = '';
+    document.getElementById('p-eng').style.display = 'flex';
+    init();
+  })
+  .catch(err => {
+    document.getElementById('loading').innerHTML =
+      `<div style="text-align:center;font-family:monospace;color:#8b1a1a;padding:24px">
+        <div style="font-size:28px;margin-bottom:10px">⚠</div>
+        <strong>Failed to load data.json</strong><br>
+        <span style="font-size:11px;color:#666;margin-top:6px;display:block">${err.message}</span>
+      </div>`;
+  });
+
+// ── HELPERS ──
+function elig(v,r){if(!r||v===null||v===undefined)return'na';if(v>=r)return'eg';if(v>=r-2000)return'cl';return'no';}
+function cell(v,r){return`<span class="cc ${elig(v,r)}">${v!==null&&v!==undefined?v.toLocaleString('en-IN'):'—'}</span>`;}
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── INIT ──
+function init(){
+  const courses=[...new Set(D.engineering.map(r=>r.course))].sort();
+  const locs=[...new Set(D.engineering.map(r=>r.location))].sort();
+  const ce=document.getElementById('eCourse'),le=document.getElementById('eLoc');
+  courses.forEach(c=>ce.innerHTML+=`<option value="${escH(c)}">${escH(c)}</option>`);
+  locs.forEach(l=>le.innerHTML+=`<option value="${escH(l)}">${escH(l)}</option>`);
+  buildSimple('bpharma',D.bpharma);
+  buildSimple('pharmd',D.pharmd);
+  buildSimple('nursing',D.nursing);
+
+  document.getElementById('rankInput').addEventListener('input',e=>{const v=parseInt(e.target.value);rank=(!v||v<=0)?null:v;renderAll();});
+  document.querySelectorAll('[data-cat]').forEach(b=>b.addEventListener('click',e=>{
+    cat=e.currentTarget.dataset.cat;
+    document.querySelectorAll('[data-cat]').forEach(x=>x.classList.toggle('active',x===e.currentTarget));
+    renderAll();
+  }));
+  document.querySelectorAll('[data-tab]').forEach(t=>t.addEventListener('click',e=>{
+    const id=e.currentTarget.dataset.tab;
+    document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===e.currentTarget));
+    ['eng','bpharma','pharmd','nursing'].forEach(n=>{
+      document.getElementById('p-'+n).style.display=n===id?'flex':'none';
+    });
+  }));
+  document.getElementById('eSearch').addEventListener('input',e=>{ES.search=e.target.value;ES.page=1;renderEng();});
+  document.getElementById('eCourse').addEventListener('change',e=>{ES.course=e.target.value;ES.page=1;renderEng();});
+  document.getElementById('eLoc').addEventListener('change',e=>{ES.loc=e.target.value;ES.page=1;renderEng();});
+  document.getElementById('eRound').addEventListener('change',e=>{ES.round=e.target.value;ES.page=1;renderEng();});
+  document.getElementById('eElig').addEventListener('change',e=>{ES.elig=e.target.checked;ES.page=1;renderEng();});
+  document.querySelectorAll('#eTable th[data-col]').forEach(th=>th.addEventListener('click',()=>{
+    const col=th.dataset.col;
+    if(ES.sort===col)ES.asc=!ES.asc;else{ES.sort=col;ES.asc=(col!=='nirf'&&col!=='distance');}
+    ES.page=1;renderEng();
+  }));
+  renderAll();
+}
+
+// ── ENGINEERING ──
+function getC(row,round,c){const r=row.cutoffs[round];return r?(c==='tbg'?r.tbg:r.gm):null;}
+
+function renderEng(){
+  const q=ES.search.toLowerCase().trim();
+  let data=D.engineering.filter(r=>{
+    if(ES.course&&r.course!==ES.course)return false;
+    if(ES.loc&&r.location!==ES.loc)return false;
+    if(q&&!r.college.toLowerCase().includes(q)&&!r.course.toLowerCase().includes(q)&&!r.code.toLowerCase().includes(q))return false;
+    if(ES.elig&&rank){
+      const gm=getC(r,ES.round,'gm'),tb=getC(r,ES.round,'tbg');
+      if(cat==='gm'&&elig(gm,rank)!=='eg')return false;
+      if(cat==='tbg'&&elig(tb,rank)!=='eg')return false;
+      if(cat==='both'&&elig(gm,rank)!=='eg'&&elig(tb,rank)!=='eg')return false;
+    }
+    return true;
+  });
+  data.sort((a,b)=>{
+    let av,bv;
+    switch(ES.sort){
+      case'gm':av=getC(a,ES.round,'gm');bv=getC(b,ES.round,'gm');break;
+      case'tbg':av=getC(a,ES.round,'tbg');bv=getC(b,ES.round,'tbg');break;
+      case'distance':av=parseFloat(a.distance)||9999;bv=parseFloat(b.distance)||9999;break;
+      case'nirf':av=parseFloat(a.nirf)||9999;bv=parseFloat(b.nirf)||9999;break;
+      default:av=(a[ES.sort]||'').toLowerCase();bv=(b[ES.sort]||'').toLowerCase();
+    }
+    if(av===null&&bv===null)return 0;if(av===null)return 1;if(bv===null)return -1;
+    return(av<bv?-1:av>bv?1:0)*(ES.asc?1:-1);
+  });
+  ES.data=data;
+  document.getElementById('eCnt').textContent=data.length.toLocaleString('en-IN')+' results';
+  document.getElementById('engBadge').textContent=data.length.toLocaleString('en-IN');
+  document.getElementById('eYrLbl').textContent=ES.round;
+  document.querySelectorAll('#eTable th[data-col]').forEach(th=>{
+    th.classList.toggle('sorted',th.dataset.col===ES.sort);
+    th.querySelector('.s-arr').textContent=th.dataset.col===ES.sort?(ES.asc?'↑':'↓'):'↕';
+  });
+  renderEngPage();
+}
+
+function renderEngPage(){
+  const data=ES.data,pages=Math.max(1,Math.ceil(data.length/PS));
+  ES.page=Math.min(ES.page,pages);
+  const slice=data.slice((ES.page-1)*PS,ES.page*PS);
+  let html='';
+  slice.forEach(r=>{
+    const gm=getC(r,ES.round,'gm'),tb=getC(r,ES.round,'tbg');
+    const key=r.code+'|'+r.course,exp=expandKey===key;
+    const nirf=(r.nirf&&r.nirf!=='-'&&r.nirf!=='--')?r.nirf:null;
+    const dist=(r.distance&&r.distance!=='250'&&r.distance!=='')?r.distance+' km':'—';
+    html+=`<tr class="${exp?'is-exp':''}" data-ekey="${escH(key)}" onclick="toggleExp(this.dataset.ekey)">
+      <td class="td-code">${escH(r.code)}</td>
+      <td class="td-college"><div class="cn">${escH(r.college)}</div></td>
+      <td class="td-course">${escH(r.course)}</td>
+      <td class="td-loc">${escH(r.location)}</td>
+      <td class="td-dist">${dist}</td>
+      <td class="td-nirf${nirf?' has-nirf':''}">${nirf||'—'}</td>
+      <td>${cell(gm,rank)}</td>
+      <td>${cell(tb,rank)}</td>
+    </tr>`;
+    if(exp)html+=`<tr class="exp-row"><td colspan="8"><div class="exp-inner">${buildTrend(r)}</div></td></tr>`;
+  });
+  if(!html)html='<tr><td colspan="8"><div class="empty-state"><div class="ei">◉</div>No results match your filters.</div></td></tr>';
+  document.getElementById('eTbody').innerHTML=html;
+  renderPager('eng',ES.page,pages,ES.data.length);
+}
+
+function buildTrend(r){
+  let h=`<h3>${escH(r.college)} <em>·</em> ${escH(r.course)}</h3><div class="trend-grid">`;
+  ROUNDS.forEach(rnd=>{
+    const c=r.cutoffs[rnd];if(!c||(c.gm===null&&c.tbg===null))return;
+    const eg=elig(c.gm,rank),et=elig(c.tbg,rank);
+    const cls=(eg==='eg'?'eg-gm':eg==='cl'?'cl-gm':'')+(et==='eg'?' eg-tbg':et==='cl'?' cl-tbg':'');
+    h+=`<div class="tc ${cls.trim()}"><div class="rl">${rnd}</div><div class="gv">${c.gm!==null?c.gm.toLocaleString('en-IN'):'—'}</div><div class="tv">3BG: ${c.tbg!==null?c.tbg.toLocaleString('en-IN'):'—'}</div></div>`;
+  });
+  return h+'</div>';
+}
+
+function toggleExp(key){expandKey=expandKey===key?null:key;renderEngPage();}
+
+function clearEng(){
+  ['eSearch','eCourse','eLoc'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('eElig').checked=false;
+  ES.search=ES.course=ES.loc='';ES.elig=false;ES.page=1;renderEng();
+}
+
+// ── SIMPLE PANELS ──
+function buildSimple(id,rawData){
+  const p=document.getElementById('p-'+id);
+  p.innerHTML=`
+    <div class="filterbar">
+      <div class="fg"><span class="fg-label">Search</span><input id="${id}S" class="f-search" type="text" placeholder="college or course…"></div>
+      <div class="fg"><span class="fg-label">Eligible&nbsp;only</span><input id="${id}E" type="checkbox"></div>
+      <span id="${id}Cnt" class="fcount"></span>
+      <div class="ml-auto legend">
+        <div class="leg"><span class="leg-swatch ls-g"></span>GM Eligible</div>
+        <div class="leg"><span class="leg-swatch ls-y"></span>3BG Eligible</div>
+      </div>
+    </div>
+    <div class="twrap" id="${id}Wrap">
+      <table><thead><tr>
+        <th>Code</th><th style="min-width:220px">College</th><th>Course</th>
+        <th>Location</th><th>Dist.</th><th>NIRF</th>
+        <th style="min-width:90px">GM Cutoff</th><th style="min-width:90px">3BG Cutoff</th>
+      </tr></thead><tbody id="${id}Tb"></tbody></table>
+    </div>
+    <div class="pager" id="${id}Pager"></div>`;
+  document.getElementById(id+'S').addEventListener('input',e=>{SS[id].search=e.target.value;SS[id].page=1;renderSimple(id);});
+  document.getElementById(id+'E').addEventListener('change',()=>{SS[id].elig=document.getElementById(id+'E').checked;SS[id].page=1;renderSimple(id);});
+  renderSimple(id);
+}
+
+function renderSimple(id){
+  const s=SS[id],q=s.search.toLowerCase();
+  s.data=D[id].filter(r=>{
+    if(q&&!r.college.toLowerCase().includes(q)&&!r.course.toLowerCase().includes(q))return false;
+    if(s.elig&&rank){
+      if(cat==='gm'&&elig(r.gm,rank)!=='eg')return false;
+      if(cat==='tbg'&&elig(r.tbg,rank)!=='eg')return false;
+      if(cat==='both'&&elig(r.gm,rank)!=='eg'&&elig(r.tbg,rank)!=='eg')return false;
+    }
+    return true;
+  });
+  document.getElementById(id+'Cnt').textContent=s.data.length.toLocaleString('en-IN')+' results';
+  document.getElementById({bpharma:'bpharmaBadge',pharmd:'pharmdBadge',nursing:'nursingBadge'}[id]).textContent=s.data.length.toLocaleString('en-IN');
+  renderSimplePg(id);
+}
+
+function renderSimplePg(id){
+  const s=SS[id],pages=Math.max(1,Math.ceil(s.data.length/PS));
+  s.page=Math.min(s.page,pages);
+  const slice=s.data.slice((s.page-1)*PS,s.page*PS);
+  let html='';
+  slice.forEach(r=>{
+    const nirf=(r.nirf&&r.nirf!=='-'&&r.nirf!=='--')?r.nirf:null;
+    const dist=(r.distance&&r.distance!=='250'&&r.distance!=='')?r.distance+' km':'—';
+    html+=`<tr><td class="td-code">${escH(r.code)}</td><td class="td-college"><div class="cn">${escH(r.college)}</div></td><td class="td-course">${escH(r.course)}</td><td class="td-loc">${escH(r.location)}</td><td class="td-dist">${dist}</td><td class="td-nirf${nirf?' has-nirf':''}">${nirf||'—'}</td><td>${cell(r.gm,rank)}</td><td>${cell(r.tbg,rank)}</td></tr>`;
+  });
+  if(!html)html='<tr><td colspan="8"><div class="empty-state"><div class="ei">◉</div>No results found.</div></td></tr>';
+  document.getElementById(id+'Tb').innerHTML=html;
+  renderPager(id,s.page,pages,s.data.length);
+}
+
+// ── PAGINATION ──
+function renderPager(id,page,pages,total){
+  const el=document.getElementById(id==='eng'?'ePager':id+'Pager');
+  if(!el||pages<=1){if(el)el.innerHTML='';return;}
+  const lo=Math.max(1,page-2),hi=Math.min(pages,page+2);
+  let h=`<button class="btn" onclick="gp('${id}',1)" ${page===1?'disabled':''}>«</button>`;
+  h+=`<button class="btn" onclick="gp('${id}',${page-1})" ${page===1?'disabled':''}>‹</button>`;
+  if(lo>1)h+=`<button class="btn" onclick="gp('${id}',1)">1</button>${lo>2?'<span class="pi">…</span>':''}`;
+  for(let i=lo;i<=hi;i++)h+=`<button class="btn${i===page?' active':''}" onclick="gp('${id}',${i})">${i}</button>`;
+  if(hi<pages)h+=`${hi<pages-1?'<span class="pi">…</span>':''}<button class="btn" onclick="gp('${id}',${pages})">${pages}</button>`;
+  h+=`<button class="btn" onclick="gp('${id}',${page+1})" ${page===pages?'disabled':''}>›</button>`;
+  h+=`<button class="btn" onclick="gp('${id}',${pages})" ${page===pages?'disabled':''}>»</button>`;
+  const from=((page-1)*PS+1).toLocaleString('en-IN'),to=Math.min(page*PS,total).toLocaleString('en-IN');
+  h+=`<span class="pi">${from}–${to} of ${total.toLocaleString('en-IN')}</span>`;
+  el.innerHTML=h;
+}
+
+function gp(id,page){
+  if(id==='eng'){ES.page=page;renderEngPage();document.getElementById('eWrap').scrollTop=0;}
+  else{SS[id].page=page;renderSimplePg(id);document.getElementById(id+'Wrap').scrollTop=0;}
+}
+
+function renderAll(){renderEng();['bpharma','pharmd','nursing'].forEach(renderSimple);}
+</script>
+</body>
+</html>
