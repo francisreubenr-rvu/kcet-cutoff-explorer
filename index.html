@@ -371,6 +371,8 @@ tbody.is-entering tr { opacity:0; animation: row-enter 300ms var(--ease-out) bot
 </head>
 <body>
 
+<noscript><div style="position:fixed;inset:0;background:#FBF8F1;display:flex;align-items:center;justify-content:center;z-index:999;font-family:system-ui;text-align:center;padding:24px"><div><h1 style="font-family:Georgia,serif;font-size:24px;margin-bottom:12px;color:#1C1917">KCET <span style="color:#C25E63">Cutoff</span> Explorer</h1><p style="font-size:14px;color:#4A443C">This tool requires JavaScript.<br>Please enable JavaScript and refresh.</p></div></div></noscript>
+
 <!-- ONBOARDING -->
 <div id="onboarding">
   <div class="obo-wrap">
@@ -1079,7 +1081,7 @@ function gp(id,page){
 function renderAll(){renderEng();SIMPLE_IDS.forEach(renderSimple);renderConsole();}
 
 /* ── STARTUP ── */
-readOboHash();
+try{readOboHash();
 if(oboDone){
   buildOboCats();
   $('onboarding').style.display='none';
@@ -1091,7 +1093,7 @@ if(oboDone){
   if(RANKS.bpharma){$('oboBpharma').value=RANKS.bpharma;$('oboBpharma').classList.add('has-val');}
   if(RANKS.pharmd){$('oboPharmd').value=RANKS.pharmd;$('oboPharmd').classList.add('has-val');}
   if(RANKS.nursing){$('oboNursing').value=RANKS.nursing;$('oboNursing').classList.add('has-val');}
-}
+}}catch(e){console.error(e);}
 </script>
 </body>
 </html>
