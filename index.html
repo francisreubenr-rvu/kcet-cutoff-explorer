@@ -1004,8 +1004,8 @@ function renderConsole(){
 }
 
 function canEligSimple(r,rank){
-  if(elig(r.gm,rank)==='eg')return true;
-  if(elig(r.tbg,rank)==='eg')return true;
+  const co=r.cutoffs&&r.cutoffs['2025 Final']?r.cutoffs['2025 Final']:{};
+  for(const c of selectedCats){if(elig(co[c],rank)==='eg')return true;}
   return false;
 }
 
@@ -1013,7 +1013,7 @@ function canEligSimple(r,rank){
 function buildSimple(id){
   const p=$('p-'+id);
   const labelMap={bpharma:'B.Pharma',pharmd:'Pharm.D',nursing:'BSc Nursing'};
-  p.innerHTML=`<div class="filterbar" role="search" aria-label="Filter ${labelMap[id]} colleges"><div class="fg"><label class="fg-label" for="${id}S">Search</label><input id="${id}S" class="f-search" type="text" placeholder="college or course\u2026" autocomplete="off" spellcheck="false"></div><div class="fg"><label class="fg-label" for="${id}E">Eligible&nbsp;only</label><input id="${id}E" type="checkbox" title="Enter your rank first"></div><span id="${id}Cnt" class="fcount" aria-live="polite" aria-atomic="true"></span><div class="ml-auto legend" aria-hidden="true"><div class="leg"><span class="leg-swatch ls-g"></span>Eligible</div><div class="leg"><span class="leg-swatch ls-y"></span>Within 2&#8239;000</div><div class="leg"><span class="leg-swatch ls-d"></span>Not eligible</div></div></div><div class="twrap" id="${id}Wrap"><table><thead><tr><th scope="col">Code</th><th scope="col" style="min-width:220px">College</th><th scope="col">Course</th><th scope="col">Location</th><th scope="col">Dist.</th><th scope="col">NIRF</th><th scope="col" style="min-width:96px">GM Cutoff</th><th scope="col" style="min-width:96px">3BG Cutoff</th></tr></thead><tbody id="${id}Tb"></tbody></table></div><div class="pager" id="${id}Pager" role="navigation" aria-label="Page navigation"></div>`;
+  p.innerHTML=`<div class="filterbar" role="search" aria-label="Filter ${labelMap[id]} colleges"><div class="fg"><label class="fg-label" for="${id}S">Search</label><input id="${id}S" class="f-search" type="text" placeholder="college or course\u2026" autocomplete="off" spellcheck="false"></div><div class="fg"><label class="fg-label" for="${id}E">Eligible&nbsp;only</label><input id="${id}E" type="checkbox" title="Enter your rank first"></div><span id="${id}Cnt" class="fcount" aria-live="polite" aria-atomic="true"></span><div class="ml-auto legend" aria-hidden="true"><div class="leg"><span class="leg-swatch ls-g"></span>Eligible</div><div class="leg"><span class="leg-swatch ls-y"></span>Within 2\u202F000</div><div class="leg"><span class="leg-swatch ls-d"></span>Not eligible</div></div></div><div class="twrap" id="${id}Wrap"><table><thead id="${id}Thead"></thead><tbody id="${id}Tb"></tbody></table></div><div class="pager" id="${id}Pager" role="navigation" aria-label="Page navigation"></div>`;
   const debS=debounce(()=>{SS[id].page=1;renderSimple(id);},140);
   $(id+'S').addEventListener('input',e=>{SS[id].search=e.target.value;debS();});
   $(id+'E').addEventListener('change',e=>{SS[id].elig=e.target.checked;SS[id].page=1;renderSimple(id);});
@@ -1021,13 +1021,20 @@ function buildSimple(id){
 
 function renderSimple(id){
   const s=SS[id],q=s.search.toLowerCase().trim();
-  s.data=D[id].filter(r=>{if(q&&!r._hay.includes(q))return false;if(s.elig&&RANKS[id]&&!canEligSimple(r,RANKS[id]))return false;return true;});
+  s.data=D[id].filter(r=>{if(q&&!r._hay.includes(q))return false;if(s.elig&&RANKS[id]){let anyElig=false;for(const c of selectedCats){const v=r.cutoffs&&r.cutoffs['2025 Final']?r.cutoffs['2025 Final'][c]:null;if(elig(v,RANKS[id])==='eg'){anyElig=true;break;}}if(!anyElig)return false;}return true;});
   $(id+'Cnt').textContent=fmt(s.data.length)+' results';
   $(id+'Badge').textContent=fmt(s.data.length);
   if(currentTab===id)renderSimplePg(id);else dirty[id]=true;
 }
 
 function renderSimplePg(id){
+  // Build dynamic header
+  const rounds=Object.keys(D[id][0]?.cutoffs||{}).sort().reverse();
+  const activeRound=rounds[0]||'2025 Final';
+  let thead=`<tr class="yr-row"><th colspan="6" aria-hidden="true"></th><th colspan="${selectedCats.length}" style="text-align:center">${activeRound}</th></tr><tr><th scope="col">Code</th><th scope="col" style="min-width:180px">College</th><th scope="col">Course</th><th scope="col">Location</th><th scope="col">Dist.</th><th scope="col">NIRF</th>`;
+  selectedCats.forEach(c=>{thead+=`<th scope="col" style="min-width:82px">${c.toUpperCase()} Rank</th>`;});
+  thead+='</tr>';
+  $(id+'Thead').innerHTML=thead;
   const s=SS[id],pages=Math.max(1,Math.ceil(s.data.length/PS));
   s.page=Math.min(s.page,pages);
   const slice=s.data.slice((s.page-1)*PS,s.page*PS);
@@ -1035,10 +1042,16 @@ function renderSimplePg(id){
   const out=slice.map(r=>{
     const nirf=(r.nirf&&r.nirf!=='-'&&r.nirf!=='--')?r.nirf:null;
     const dist=(r.distance&&r.distance!=='250'&&r.distance!=='')?r.distance+' km':'\u2014';
-    return `<tr><td class="td-code">${escH(r.code)}</td><td class="td-college"><div class="cn">${escH(r.college)}</div></td><td class="td-course">${escH(r.course)}</td><td class="td-loc">${escH(r.location)}</td><td class="td-dist">${dist}</td><td class="td-nirf${nirf?' has-nirf':''}">${nirf||'\u2014'}</td><td>${cell(r.gm,RANKS[id])}</td><td>${cell(r.tbg,RANKS[id])}</td></tr>`;
+    let row=`<tr><td class="td-code">${escH(r.code)}</td><td class="td-college"><div class="cn">${escH(r.college)}</div></td><td class="td-course">${escH(r.course)}</td><td class="td-loc">${escH(r.location)}</td><td class="td-dist">${dist}</td><td class="td-nirf${nirf?' has-nirf':''}">${nirf||'\u2014'}</td>`;
+    selectedCats.forEach(c=>{
+      const v=r.cutoffs&&r.cutoffs[activeRound]?r.cutoffs[activeRound][c]:null;
+      row+=`<td>${cell(v,RANKS[id])}</td>`;
+    });
+    row+='</tr>';
+    return row;
   });
   let html=out.join('');
-  if(!html)html=`<tr><td colspan="8"><div class="empty-state"><div class="ei">\u25C9</div>No results found.<span class="hint">Try a broader search, or untick "eligible only".</span></div></td></tr>`;
+  if(!html)html=`<tr><td colspan="${6+selectedCats.length}"><div class="empty-state"><div class="ei">\u25C9</div>No results found.<span class="hint">Try a broader search, or untick "eligible only".</span></div></td></tr>`;
   if(rankJustChanged&&RANKS[id])tbody.setAttribute('data-rank-live','1');
   else tbody.removeAttribute('data-rank-live');
   tbody.innerHTML=html;
