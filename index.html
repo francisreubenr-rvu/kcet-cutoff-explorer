@@ -500,6 +500,7 @@ const dirty={eng:false,bpharma:false,pharmd:false,nursing:false};
 let expandKey=null;
 let selectedCats=['gm'];
 let oboDone=false;
+const SIMPLE_ROUNDS={};
 
 const $=id=>document.getElementById(id);
 const fmt=n=>n.toLocaleString('en-IN');
@@ -642,7 +643,19 @@ function showLoading(){
 
 function indexData(){
   D.engineering.forEach(r=>{r._hay=hayEng(r);});
-  SIMPLE_IDS.forEach(id=>D[id].forEach(r=>{r._hay=(r.college+' '+r.course).toLowerCase();}));
+  SIMPLE_IDS.forEach(function(id){
+    var rounds=Object.create(null);
+    D[id].forEach(function(r){
+      if(r.cutoffs)Object.keys(r.cutoffs).forEach(function(k){rounds[k]=1;});
+    });
+    var sorted=Object.keys(rounds).sort();
+    if(sorted.indexOf('2025 Final')>=0){
+      sorted.splice(sorted.indexOf('2025 Final'),1);
+      sorted.unshift('2025 Final');
+    }
+    SIMPLE_ROUNDS[id]=sorted;
+    D[id].forEach(function(r){r._hay=(r.college+' '+r.course).toLowerCase();});
+  });
 }
 
 function hayEng(r){
@@ -1026,12 +1039,15 @@ function canEligSimple(r,rank,round){
 
 /* ── SIMPLE PANELS ── */
 function buildSimple(id){
-  const p=$('p-'+id);
-  const labelMap={bpharma:'B.Pharma',pharmd:'Pharm.D',nursing:'BSc Nursing'};
-  p.innerHTML=`<div class="filterbar" role="search" aria-label="Filter ${labelMap[id]} colleges"><div class="fg"><label class="fg-label" for="${id}S">Search</label><input id="${id}S" class="f-search" type="text" placeholder="college or course\u2026" autocomplete="off" spellcheck="false"></div><div class="fg"><label class="fg-label" for="${id}E">Eligible&nbsp;only</label><input id="${id}E" type="checkbox" title="Enter your rank first"></div><span id="${id}Cnt" class="fcount" aria-live="polite" aria-atomic="true"></span><div class="ml-auto legend" aria-hidden="true"><div class="leg"><span class="leg-swatch ls-g"></span>Eligible</div><div class="leg"><span class="leg-swatch ls-y"></span>Within 2\u202F000</div><div class="leg"><span class="leg-swatch ls-d"></span>Not eligible</div></div></div><div class="fg"><label class="fg-label" for="${id}Rd">Round</label><select id="${id}Rd" class="f-round">${rounds.map(r=>r==='2025 Final'?`<option>${r}</option>`:`<option>${r}</option>`).join('')}</select></div><div class="twrap" id="${id}Wrap"><table><thead id="${id}Thead"></thead><tbody id="${id}Tb"></tbody></table></div><div class="pager" id="${id}Pager" role="navigation" aria-label="Page navigation"></div>`;
-  const debS=debounce(()=>{SS[id].page=1;renderSimple(id);},140);
-  $(id+'S').addEventListener('input',e=>{SS[id].search=e.target.value;debS();});
-  $(id+'E').addEventListener('change',e=>{SS[id].elig=e.target.checked;SS[id].page=1;renderSimple(id);});$(id+'Rd').addEventListener('change',e=>{SS[id].round=e.target.value;SS[id].page=1;renderSimple(id);});
+  var p=$('p-'+id);
+  var labelMap={bpharma:'B.Pharma',pharmd:'Pharm.D',nursing:'BSc Nursing'};
+  var rounds=SIMPLE_ROUNDS[id]||['2025 Final'];
+  var roundOpts=rounds.map(function(r){return '<option'+(r===SS[id].round?' selected':'')+'>'+r+'</option>';}).join('');
+  p.innerHTML='<div class="filterbar" role="search" aria-label="Filter '+labelMap[id]+' colleges"><div class="fg"><label class="fg-label" for="'+id+'S">Search</label><input id="'+id+'S" class="f-search" type="text" placeholder="college or course\u2026" autocomplete="off" spellcheck="false"></div><div class="fg"><label class="fg-label" for="'+id+'E">Eligible&nbsp;only</label><input id="'+id+'E" type="checkbox" title="Enter your rank first"></div><span id="'+id+'Cnt" class="fcount" aria-live="polite" aria-atomic="true"></span><div class="ml-auto legend" aria-hidden="true"><div class="leg"><span class="leg-swatch ls-g"></span>Eligible</div><div class="leg"><span class="leg-swatch ls-y"></span>Within 2\u202F000</div><div class="leg"><span class="leg-swatch ls-d"></span>Not eligible</div></div></div><div class="fg"><label class="fg-label" for="'+id+'Rd">Round</label><select id="'+id+'Rd" class="f-round">'+roundOpts+'</select></div><div class="twrap" id="'+id+'Wrap"><table><thead id="'+id+'Thead"></thead><tbody id="'+id+'Tb"></tbody></table></div><div class="pager" id="'+id+'Pager" role="navigation" aria-label="Page navigation"></div>';
+  var debS=debounce(function(){SS[id].page=1;renderSimple(id);},140);
+  $(id+'S').addEventListener('input',function(e){SS[id].search=e.target.value;debS();});
+  $(id+'E').addEventListener('change',function(e){SS[id].elig=e.target.checked;SS[id].page=1;renderSimple(id);});
+  $(id+'Rd').addEventListener('change',function(e){SS[id].round=e.target.value;SS[id].page=1;renderSimple(id);});
 }
 
 function renderSimple(id){
