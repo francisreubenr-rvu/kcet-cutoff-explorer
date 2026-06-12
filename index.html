@@ -613,22 +613,29 @@ const writeOboHash=debounce(()=>{
 
 /* ── LOAD DATA ── */
 function showLoading(){
-  $('onboarding').classList.add('is-leaving');
-  setTimeout(()=>{$('onboarding').style.display='none';},360);
-  $('loading').style.display='';
-  if(D){revealApp();return;}
-  requestAnimationFrame(()=>{
+  console.log('showLoading: start');
+  var ob=$('onboarding');
+  if(ob)ob.classList.add('is-leaving');
+  setTimeout(function(){if(ob)ob.style.display='none';},360);
+  var ld=$('loading');
+  if(ld)ld.style.display='';
+  if(D){console.log('showLoading: D already loaded');revealApp();return;}
+  requestAnimationFrame(function(){
+    console.log('showLoading: fetching data.json');
     fetch('data.json')
-      .then(r=>r.json())
-      .then(data=>{
+      .then(function(r){console.log('fetch: response',r.status);return r.json();})
+      .then(function(data){
+        console.log('fetch: data loaded, keys='+Object.keys(data).join(','));
         D=data;
         indexData();
-        const bar=$('loadBar');
-        bar.classList.add('complete');
+        var bar=$('loadBar');
+        if(bar)bar.classList.add('complete');
         setTimeout(revealApp,380);
       })
-      .catch(()=>{
-        $('loading').innerHTML='<div style="text-align:center;color:var(--danger);font-family:var(--mono);font-size:13px">Failed to load data.<br><br>Try refreshing the page.</div>';
+      .catch(function(e){
+        console.error('fetch FAILED:',e);
+        var dl=$('loading');
+        if(dl)dl.innerHTML='<div style="text-align:center;color:var(--danger);font-family:var(--mono);font-size:13px;padding:40px">Failed to load data.<br><br><span style="font-size:11px;color:var(--ink3)">'+e.message+'</span><br><br>Try refreshing the page.</div>';
       });
   });
 }
@@ -664,16 +671,22 @@ function hayEng(r){
 }
 
 function revealApp(){
-  const loading=$('loading');
-  loading.classList.add('is-exiting');
-  setTimeout(()=>{loading.style.display='none';},400);
-  $('appHeader').style.display=''; $('appHeader').classList.add('app-entry-1');
-  $('appTabs').style.display='';   $('appTabs').classList.add('app-entry-2');
-  $('p-eng').style.display='flex'; $('p-eng').classList.add('app-entry-3');
-  const tbody=$('eTbody');
-  tbody.classList.add('is-entering');
-  setTimeout(()=>tbody.classList.remove('is-entering'),700);
-  init();
+  console.log('revealApp: starting');
+  try{
+    var loading=$('loading');
+    if(loading){loading.classList.add('is-exiting');setTimeout(function(){loading.style.display='none';},400);}
+    var hdr=$('appHeader'); if(hdr){hdr.style.display='';hdr.classList.add('app-entry-1');}
+    var tabs=$('appTabs'); if(tabs){tabs.style.display='';tabs.classList.add('app-entry-2');}
+    var peng=$('p-eng'); if(peng){peng.style.display='flex';peng.classList.add('app-entry-3');}
+    var tbody=$('eTbody'); if(tbody){tbody.classList.add('is-entering');setTimeout(function(){tbody.classList.remove('is-entering');},700);}
+    console.log('revealApp: calling init');
+    init();
+    console.log('revealApp: done');
+  }catch(e){
+    console.error('revealApp ERROR:',e);
+    var dl=$('loading');
+    if(dl)dl.innerHTML='<div style="text-align:center;padding:40px;color:var(--danger);font-family:monospace;font-size:13px">Error initializing app.<br><br>'+e.message+'</div>';
+  }
 }
 
 /* ── INIT ── */
